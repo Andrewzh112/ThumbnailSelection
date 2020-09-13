@@ -20,5 +20,5 @@ class ContextEmbeddingLoss(nn.Module):
         for i in range(n_negatives):
             negative_loss += self.similarity(anchor, negatives[:, i])
         negative_loss /= n_negatives
-        loss, _ = torch.max(negative_loss - positive_loss + self.margin, 0)
-        return loss
+        loss = torch.clamp(negative_loss - positive_loss + self.margin, min=0)
+        return loss.mean(0)
