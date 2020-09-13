@@ -9,9 +9,13 @@ class Trainer:
         self.config = config
         self.dataset = ThumbnailDataset()
         self.train_loader = get_loaders(
-            self.dataset, batch_size=config.batch_size)
+            self.dataset, batch_size=config.batch_size,
+            num_workers=config.num_workers)
         self.model = model
-        self.optimizer = torch.optim.Adam(self.model.parameters())
+        self.optimizer = torch.optim.Adam(self.model.parameters(),
+                                          lr=config.lr,
+                                          betas=config.betas,
+                                          weight_decay=config.weight_decay)
         self.criterion = ContextEmbeddingLoss(margin=config.margin)
 
         self.device = 'cpu'
@@ -31,6 +35,8 @@ class Trainer:
                 loss = self.criterion(anchor, positive, negatives)
                 losses.append(loss.item())
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(),
+                                               self.config.grad_norm_clip)
                 self.optimizer.step()
             return losses
         pbar = tqdm(range(self.config.epochs))

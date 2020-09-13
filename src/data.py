@@ -40,10 +40,11 @@ class ThumbnailDataset(Dataset):
         }
 
 
-def get_loaders(dataset, batch_size=1):
+def get_loaders(dataset, batch_size, num_workers):
     return DataLoader(
         dataset,
         batch_size=batch_size,
+        num_workers=num_workers,
         shuffle=True
     )
 

@@ -22,8 +22,7 @@ class TrainerConfig:
     grad_norm_clip = 1.0
     weight_decay = 0.1
     lr_decay = False
-    ckpt_path = None
-    margin = 0.1
+    margin = 0.2
     num_workers = 0
 
     def __init__(self, **kwargs):
