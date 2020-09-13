@@ -22,18 +22,21 @@ class ThumbnailDataset(Dataset):
 
     def __getitem__(self, item):
         video = self.idx2name[item]
-        thumbnail = Image.open(f'data/{video}.jpg')
+        thumbnail = Image.open(f'data/{video}.jpg').resize((360, 640))
         negatives = [Image.open(
-            f'data/{video}N{i}.jpg') for i in range(self.n_negatives)]
+            f'data/{video}N{i}.jpg').resize(
+                (360, 640)) for i in range(self.n_negatives)]
+        negatives = torch.cat([torch.tensor(
+            np.asarray(
+                negative)).unsqueeze(0) for negative in negatives], dim=0)
+        thumbnails = torch.tensor(np.asarray(thumbnail)).unsqueeze(0)
+        thumbnails = torch.cat([thumbnails, negatives], dim=0).permute(0, 3, 1, 2)
         return {
             'audio': torch.tensor(self.audio[video]),
             'description': torch.tensor(self.description[video]),
             'title': torch.tensor(self.title[video]),
             'frames': torch.tensor(self.frames[item]),
-            'thumbnail': torch.tensor(np.asarray(thumbnail)),
-            'negatives': torch.cat([torch.tensor(
-                np.asarray(
-                    negative)).unsqueeze(0) for negative in negatives], dim=0)
+            'thumbnails': thumbnails
         }
 
 

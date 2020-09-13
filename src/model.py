@@ -4,31 +4,24 @@ from torchvision import models
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
 
-class ThumbnailSelection(nn.Module):
-    def __init__(self,
-                 frame_embed_size,
-                 audio_embed_size,
-                 text_embed_size,
-                 nlayers,
-                 hidden_size,
-                 common_embed_size=256,
-                 dropout=0.2,
-                 nhead=4,
-                 latent_size=256):
+class ThumbnailSelector(nn.Module):
+    def __init__(self, config):
         """[summary]
 
         Args:
-            frame_embed_size (int): [description]
-            audio_embed_size (int): [description]
-            text_embed_size (int): [description]
-            nlayers (int): [description]
-            hidden_size (int): [description]
-            common_embed_size (int, optional): [description]. Defaults to 256.
-            dropout (float, optional): [description]. Defaults to 0.2.
-            nhead (int, optional): [description]. Defaults to 4.
-            latent_size (int, optional): [description]. Defaults to 256.
+            config ([type]): [description]
         """
-        super(ThumbnailSelection, self).__init__()
+        super(ThumbnailSelector, self).__init__()
+        # unpack configurations
+        frame_embed_size = config.frame_embed_size
+        audio_embed_size = config.audio_embed_size
+        text_embed_size = config.text_embed_size
+        nlayers = config.nlayers
+        hidden_size = config.hidden_size
+        self.common_embed_size = common_embed_size = config.common_embed_size
+        dropout = config.dropout
+        nhead = config.nhead
+        latent_size = config.latent_size
 
         # for aggregation
         concat_dim = audio_embed_size + frame_embed_size + text_embed_size*2
@@ -66,14 +59,14 @@ class ThumbnailSelection(nn.Module):
         self.transformer_projector = nn.Linear(common_embed_size, latent_size)
 
         # for targets
-        self.thumbnail2latent = models.wide_resnet50_2(pretrained=True)
+        self.thumbnail2latent = models.resnet50(pretrained=True)
         self.thumbnail2latent.fc = nn.Sequential(
             nn.Linear(
-                self.thumbnail_extractor.classifier[0].in_features,
-                latent_size * 4
+                self.thumbnail2latent.fc.in_features,
+                latent_size * 2
             ),
             nn.ReLU(),
-            nn.Linear(latent_size * 4, latent_size)
+            nn.Linear(latent_size * 2, latent_size)
         )
 
     def project_modals(self, audio, title,
@@ -92,7 +85,7 @@ class ThumbnailSelection(nn.Module):
         audio = self.audio_fc(audio).unsqueeze(1)
         title = self.title_fc(title).unsqueeze(1)
         description = self.description_fc(description).unsqueeze(1)
-        frames = self.frames_fc(frames).unsqueeze(1)
+        frames = self.frames_fc(frames)
         return (audio, title,
                 description, frames)
 
@@ -143,13 +136,13 @@ class ThumbnailSelection(nn.Module):
         #######################
         # THUMBNAIL TO LATENT #
         #######################
-        positive_thumbnail = thumbnails[:, 0, :, :]
+        positive_thumbnail = thumbnails[:, 0, :, :, :]
         positive = self.thumbnail2latent(positive_thumbnail)
 
         negatives = []
         for i in range(1, thumbnails.size(1)):
-            negative_thumbnail = thumbnails[:, i, :, :]
+            negative_thumbnail = thumbnails[:, i, :, :, :]
             negative = self.thumbnail2latent(negative_thumbnail)
-            negatives.append(negative)
+            negatives.append(negative.unsqueeze(1))
 
-        return anchor, positive, negatives
+        return anchor, positive, torch.cat(negatives, dim=1)
